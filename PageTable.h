@@ -1,3 +1,10 @@
+//
+// name: Kaylie Pham
+// RedID: 828129478
+//
+// name: Aditya Bhagat
+// RedID: 828612974
+
 #include <iostream>
 #include <cstring>
 
