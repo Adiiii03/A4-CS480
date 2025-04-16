@@ -24,6 +24,13 @@ Level::Level(int depth, int entryCount, PageTable *PageTablePtr, bool isLeaf):de
 
 };
 
+// constructor for Map
+Map::Map() {
+    frameNum = -1;              // setting initial frame num to -1 to indicate invalid
+    valid = false;              // initially invalid until mapping is added
+    dirty = false;              // nothing wrriten 
+}
+
 // constructor for the Pagetable
 PageTable::PageTable(int bitPerLevel[], int levelCount){
     this->levelCount = levelCount;
