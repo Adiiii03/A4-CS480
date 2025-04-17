@@ -14,11 +14,11 @@ Level* create_level(int depth, int entryCount, PageTable* pageTablePtr) {
   newLevel->depth = depth;
   newLevel->pageTablePtr = pageTablePtr;
 
-  // newLevel.nextLevelPtr = new Level* [pageTablePtr.entryCount[depth + 1]];
   newLevel->nextLevelPtr = nullptr;
   Map* mapPtr = nullptr;
 
   if (depth < pageTablePtr->levelCount - 1) {
+    // newLevel.nextLevelPtr = new Level* [pageTablePtr.entryCount[depth + 1]];
     newLevel->nextLevelPtr = new Level*[entryCount];
     for (int i = 0; i < entryCount; i++) {
       newLevel->nextLevelPtr[i] = nullptr;
