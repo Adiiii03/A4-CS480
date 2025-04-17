@@ -1,34 +1,28 @@
-#include "PageTable.h"
-#include <iostream>
-#include <cstdlib>
-#include <cstring>
+//
+// name: Kaylie Pham
+// RedID: 828129478
+//
+// name: Aditya Bhagat
+// RedID: 828612974
 
+#include "page_table.h"
 
-// constructor for level for PageTable Tree
-Level::Level(int depth, int entryCount, PageTable *PageTablePtr, bool isLeaf):depth(depth), pageTablePtr(PageTablePtr), isLeaf(isLeaf){
+Level* create_level(int depth, PageTable* pageTablePtr) {
 
-    if (isLeaf){
-        // allocating an array of map pointers for leaf nodes
-        mapPtr = new Map*[entryCount];
-        for (int i = 0; i < entryCount; ++i) 
-        mapPtr[i] = nullptr;                //initializing each mapping to null
-        nextLevelPtr = nullptr;             // no child level for leaf node
-    }
-    else {
-        // allocating an array of Level pointers for non-leaf nodes
-        nextLevelPtr = new Level*[entryCount];
-        for (int i = 0; i < entryCount; i++)
-        nextLevelPtr[i] = nullptr;          // initializing each next level pointer to null
-        mapPtr = nullptr;
-    }
+  Level* newLevel = new Level;   // create new level
 
-};
+  newLevel->depth = depth;
+  newLevel->pageTablePtr = pageTablePtr;
 
-// constructor for Map
-Map::Map() {
-    frameNum = -1;              // setting initial frame num to -1 to indicate invalid
-    valid = false;              // initially invalid until mapping is added
-    dirty = false;              // nothing wrriten 
+  // newLevel.nextLevelPtr = new Level* [pageTablePtr.entryCount[depth + 1]];
+  newLevel->nextLevelPtr = nullptr;
+  Map* mapPtr = nullptr;
+
+  return newLevel;
+}
+
+Map* create_map(int frameNum) {
+
 }
 
 PageTable* create_pagetable(int bitsPerLevel[]) {
@@ -68,7 +62,8 @@ PageTable* create_pagetable(int bitsPerLevel[]) {
   }
 
   // create root level with depth 0, entry count for the first level (so index 0), page table pointer
-  newPageTable->rootLevel = create_level(0, newPageTable->entryCount[0], newPageTable);
+  newPageTable->rootLevel = create_level(0, newPageTable);
+  newPageTable->rootLevel->nextLevelPtr = new Level*[newPageTable->entryCount[0]];
 
   // additional variable for summary
   exponent = newPageTable->numOfBitsOffset;
@@ -82,4 +77,24 @@ PageTable* create_pagetable(int bitsPerLevel[]) {
   newPageTable->pgTableEntries = 0;         // total number of page table entries acrosss all levels
 
   return newPageTable;
+}
+
+unsigned int getVPNFromVirtualAddress(unsigned int virtualAdd, unsigned int mask, unsigned int shift) {
+
+  int page;   // stores the VPN of any level or full VPN, depending on given mask or shift amount
+
+  page = virtualAdd & mask;  // extract the relevant bits with bitwise and
+  page >>= shift;            // shift right by given shift amount
+
+  return page;
+}
+
+void insertVpn2PfnMapping(PageTable *PageTable, unsigned int VPN, int frameNum) {
+  
+}
+
+Map* findVpn2PfnMapping(PageTable *PageTable, unsigned int VPN) {
+  Map* map = create_map(VPN);
+
+  return map;
 }
