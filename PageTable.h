@@ -21,7 +21,7 @@ struct Map{
     int VPN;                    // virtual page number address
     int PFN;                    // physical frame number address
     bool PTHit;                // true for hit, false for miss
-    int vpns[];                 // virtual page number associated with level idx
+    int* vpns;                 // virtual page number associated with level idx
 
 };
 
@@ -54,9 +54,9 @@ struct PageTable{
 
 };
 
-Map* create_map(int frameNum);    // constructor for map object
+Map* create_map();    // constructor for map object
 
-Level* create_level(int depth, PageTable* pageTablePtr);   // constructor for Level
+Level* create_level(int depth, int entryCount, PageTable* pageTablePtr);   // constructor for Level
 
 PageTable* create_pagetable(int bitsPerLevel[]);     // constructor for page table
 
