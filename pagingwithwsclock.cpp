@@ -7,9 +7,9 @@
 
 #include <iostream>
 #include <unistd.h>
-#include <fstream>
 
-#include "vaddr.tracereader.h"
+#include "vaddr_tracereader.h"
+#include "page_table.h"
 
 
 int main(int argc, char* argv[]) {
@@ -52,30 +52,44 @@ int main(int argc, char* argv[]) {
 
     int idx = optind;     // parameter, indexes next element to be processed
 
-    const char* mem_trace_file = argv[idx];
+    const char* mtrace_file_name = argv[idx];
     idx++;    // increment index to get next argument -- file
-    const char* reads_writes_file = argv[idx];
+    const char* readswrites_file_name = argv[idx];
     idx++;     // increment index to get next argument -- num bits for level(s)
 
-    std::ifstream mtrace_file_stream(mem_trace_file); // open memory trace file for reading
-    std::ifstream reads_writes_file_stream(reads_writes_file); // open reads & writes file for reading
+    FILE* mtrace_file = fopen(mtrace_file_name, "r");
+    FILE* readswrites_file = fopen(readswrites_file_name, "r");
 
-    // if memory trace file is non-existent, print error message
-    if (!mtrace_file_stream.is_open()) {
+    if (!mtrace_file) {
         std::cerr << "Unable to open <<trace.tr>>" << std::endl;
-        return 1; // exit program, error occurred
+             return 1; // exit program, error occurred
+    }
+    if (!readswrites_file) {
+        std::cerr << "Unable to open <<readswrites.tr>>" << std::endl;
+        return 1;
     }
 
-    /// if reads & writes file is non-existent, print error message
-    if (!reads_writes_file_stream.is_open()) {
-        std::cerr << "Unable to open <<readswrites.txt>>" << std::endl;
-        return 1; // exit program, error occurred
-    }
+    // std::ifstream mtrace_file_stream(mem_trace_file); // open memory trace file for reading
+    // std::ifstream reads_writes_file_stream(reads_writes_file); // open reads & writes file for reading
+    //
+    // // if memory trace file is non-existent, print error message
+    // if (!mtrace_file_stream.is_open()) {
+    //     std::cerr << "Unable to open <<trace.tr>>" << std::endl;
+    //     return 1; // exit program, error occurred
+    // }
+    //
+    // /// if reads & writes file is non-existent, print error message
+    // if (!reads_writes_file_stream.is_open()) {
+    //     std::cerr << "Unable to open <<readswrites.txt>>" << std::endl;
+    //     return 1; // exit program, error occurred
+    // }
 
-    int totalNumBitsAllLevels = 0;
+    // store number of bits to be used for each level
+    int totalNumBitsAllLevels = 0;    // store total number of bits for all levels
+    int levelCount = argc - idx;
+    int bitsPerLevel[levelCount];    // create array to store bits for each level
     if (idx < argc) {
-        int bitsPerLevel [argc - idx];
-        for (int i = idx; i < argc; i++) {
+        for (int i = 0; i < levelCount; i++) {
           bitsPerLevel[i] = atoi(argv[i]);
           totalNumBitsAllLevels += bitsPerLevel[i];
         }
@@ -87,9 +101,11 @@ int main(int argc, char* argv[]) {
 
     p2AddrTr mtrace;    // structure is typedefed in vaddr_tracereader
     uint32_t vAddr;    // unsigned 32-bit integer type
-    if (NextAddress(mtrace_file_stream, &mtrace)) {    // if next address exists...
+    if (NextAddress(mtrace_file, &mtrace)) {    // if next address exists...
       vAddr = mtrace.addr;    // ...store next address
     }
+
+    PageTable* page_table = create_pagetable(bitsPerLevel);
 
     return 0;
 }
