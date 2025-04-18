@@ -5,19 +5,21 @@
 # name: Aditya Bhagat
 # RedID: 828612974
 
-# CXX Make variable for compiler
-CXX=g++
+# Compiler and flags
+CXX = g++
 # -std=c++11  C/C++ variant to use, e.g. C++ 2011
 # -Wall       show the necessary warning files
 # -g3         include information for symbolic debugger e.g. gdb
-CXXFLAGS=-std=c++11 -Wall -g3 -c
+CXXFLAGS = -std=c++11 -Wall -g3
 
-# object files
-OBJS = log_helpers.o page_table.o page_replacement.o vaddr_tracereader.o pagingwithwsclock.o
+# object files 
+OBJS = log_helpers.o page_table.o WSClock.o vaddr_tracereader.o pagingwithwsclock.o
 
-
-# Program name
+# executable name
 PROGRAM = pagingwithwsclock
+
+# default target
+all: $(PROGRAM)
 
 # Rules format:
 # target : dependency1 dependency2 ... dependencyN
@@ -26,25 +28,25 @@ PROGRAM = pagingwithwsclock
 # First target is the one executed if you just type make
 # make target specifies a specific target
 # $^ is an example of a special variable.  It substitutes all dependencies
+$(PROGRAM): $(OBJS)
+	$(CXX) -o $(PROGRAM) $(OBJS)
 
-$(PROGRAM) : $(OBJS)
-	$(CXX) -o $(PROGRAM) $^ -lpthread
+# Individual compilation rules
+log_helpers.o: log_helpers.c log_helpers.h
+	$(CXX) $(CXXFLAGS) -c log_helpers.c
 
-log.o : log_helpers.h log_helpers.cpp
-	$(CXX) $(CXXFLAGS) log_helpers.cpp
+PageTable.o: page_table.cpp page_table.h
+	$(CXX) $(CXXFLAGS) -c page_table.cpp
 
-RoboMount.o : page_table.h page_table.cpp
-	$(CXX) $(CXXFLAGS) page_table.cpp
+WSClock.o: WSClock.cpp WSClock.h
+	$(CXX) $(CXXFLAGS) -c WSClock.cpp
 
-Station2.o : wsclock.h wsclock.cpp
-	$(CXX) $(CXXFLAGS) page_replacement.cpp
+vaddr_tracereader.o: vaddr_tracereader.c vaddr_tracereader.h
+	$(CXX) $(CXXFLAGS) -c vaddr_tracereader.c
 
-SharedData.o : vaddr_tracereader.h vaddr_tracereader.cpp
-	$(CXX) $(CXXFLAGS) vaddr_tracereader.cpp
+pagingwithwsclock.o: pagingwithwsclock.cpp page_table.h WSClock.h log_helpers.h vaddr_tracereader.h
+	$(CXX) $(CXXFLAGS) -c pagingwithwsclock.cpp
 
-carassemble.o : pagingwithwsclock.cpp
-	$(CXX) $(CXXFLAGS) pagingwithwsclock.cpp
-
-clean :
+# Clean rule
+clean:
 	rm -f *.o $(PROGRAM)
-
