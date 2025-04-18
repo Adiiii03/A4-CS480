@@ -135,6 +135,7 @@ void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) 
     for (int i=0; i < PageTable->levelCount; ++i) {
 
         int vpn_index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
+        vpns[i] = vpn_index;
 
         // when leaf level reached and map PFN does not exist, create map object at given index
         if (i == PageTable->levelCount - 1) {
@@ -171,15 +172,15 @@ Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int VPN) {
         int index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
 
         // if at leaf level and the map object has a valid flag, return the map
-        if (i == PageTable->levelCount - 1){
-            if (!currLevel->mapPtr[index].valid){        // check if the map entry is valid
+        if (i == PageTable->levelCount - 1) {
+            if (!currLevel->mapPtr[index].valid) {        // check if the map entry is valid
             return nullptr;                             // if not return nullptr
             }
             return &currLevel->mapPtr[index];           // if valid, return the pointer to Map object with PFN
         }
 
         // moving to next level if exists, else return null
-        if (currLevel->nextLevelPtr[index] == nullptr){         //check if valid mapping found
+        if (currLevel->nextLevelPtr[index] == nullptr) {         //check if valid mapping found
             return nullptr;                                     // returning nullptr if not
         }
         // if next level exists, go to next level
