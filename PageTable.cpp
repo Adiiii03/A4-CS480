@@ -7,6 +7,9 @@
 
 #include "page_table.h"
 
+#include <iostream>
+#include <cstring>
+
 Level* create_level(int depth, int entryCount, PageTable* pageTablePtr) {
 
   Level* newLevel = new Level;   // create new level
