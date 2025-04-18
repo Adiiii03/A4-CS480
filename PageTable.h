@@ -16,12 +16,7 @@ struct PageTable;
 struct Map{
 
     int frameNum;               // the frame number
-    bool valid;                 // wether the mapping is valid or not
-    int dirty;                 // to check if the page was written or updated
-    int VPN;                    // virtual page number address
-    int PFN;                    // physical frame number address
-    bool PTHit;                // true for hit, false for miss
-    int* vpns;                 // virtual page number associated with level idx
+    bool valid;                 // whether the mapping is valid or not
 
 };
 
@@ -29,32 +24,31 @@ struct Level{
 
     int depth;                  // current depth level (root=0)
     PageTable* pageTablePtr;    // pointer back to the parent table
-    Level** nextLevelPtr;        // for non-leaf nodes
-    Map* mapPtr;               // for leaf nodes
-    //  int VPNnum;                // the VPN number, for this particular section
+    Level** nextLevelPtr;        // stores the array of next Level* pointers, for non-leaf nodes
+    Map* mapPtr;               // stores the array of map objects, for leaf nodes
 
 };
 
 struct PageTable{
 
     int levelCount;             // to track number of levels
-    int* bitMaskAry;            // bits used for each level
+    unsigned int* bitMaskAry;            // bits used for each level
     int* shiftAry;              // shifts for each level
     int* entryCount;            // total entries for each level
     Level* rootLevel;           // root level for the pagetable tree
     int numOfBitsOffset;        // stores the number of bits in the offset
 
-    // additional variable for summary
+    // additional variable for logging purposes
     int pageSize;               // bytes per page
     int numOfPageReplaced;      // number of page replacement
     int pageTableHits;          // number of times a virtual page was mapped
-    int numOfAddress;           // number of addresses processed
+    int numOfAddresses;           // number of addresses processed
     int numOfFramesAllocated;   // number of frames allocated
     int pgTableEntries;         // total number of page table entries acrosss all levels
 
 };
 
-Map* create_map();    // constructor for map object
+Map create_map();    // constructor for map object
 
 Level* create_level(int depth, int entryCount, PageTable* pageTablePtr);   // constructor for Level
 
@@ -62,7 +56,7 @@ PageTable* create_pagetable(int bitsPerLevel[]);     // constructor for page tab
 
 /**
  * @brief Applies bit mask and shift right to given virtual address. Used to retrieve full VPN or VPN of any level.
- * @param virtAdd - virtual address
+ * @param virtualAdd - virtual address
  * @param mask - bit mask
  * @param shift - amount to shift right
  * Returns the virtual page number (vpn)
