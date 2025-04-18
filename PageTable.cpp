@@ -17,7 +17,11 @@ Level* create_level(int depth, int entryCount, PageTable* pageTablePtr) {
   newLevel->nextLevelPtr = nullptr;
   Map* mapPtr = nullptr;
 
-  if (depth < pageTablePtr->levelCount - 1) {
+  // add entry count to page table entries
+  pageTablePtr->pgTableEntries += entryCount;
+
+	// insert page entries; new level array for internal nodes, map objects for leaf nodes
+  if (depth != pageTablePtr->levelCount - 1) {
     // newLevel.nextLevelPtr = new Level* [pageTablePtr.entryCount[depth + 1]];
     newLevel->nextLevelPtr = new Level*[entryCount];
     for (int i = 0; i < entryCount; i++) {
@@ -34,17 +38,16 @@ Level* create_level(int depth, int entryCount, PageTable* pageTablePtr) {
   return newLevel;
 }
 
-Map* create_map() {
-   Map* newMap = new Map;
+Map create_map() {
+    // create new map object to return
+   Map newMap = *new Map;
 
-   newMap->frameNum = -1;
-   newMap->valid = false;
-   newMap->dirty = false;
-   newMap->VPN = -1;
-   newMap->PFN = -1;
-   newMap->PTHit = NULL;
-   newMap->vpns = nullptr;
+   // set default values of map object
+   newMap.frameNum = -1;
+   newMap.valid = false;
 
+
+   return newMap;
 }
 
 PageTable* create_pagetable(int bitsPerLevel[]) {
@@ -59,18 +62,22 @@ PageTable* create_pagetable(int bitsPerLevel[]) {
     newPageTable->numOfBitsOffset -= bitsPerLevel[i];
   }
 
-  // create array of bitmasks corresponding to level i
-  newPageTable->bitMaskAry = new int[newPageTable->levelCount];
-  for (int i = 0; i < newPageTable->levelCount; i++) {
-    newPageTable->bitMaskAry[i];
-  }
-
   // create array of bits to shift for getting level i page index
   newPageTable->shiftAry = new int[newPageTable->levelCount];
+  // create array of bits for bit mask for level i
+  newPageTable->bitMaskAry = new unsigned int[newPageTable->levelCount];
+
   int shiftAryAmt = 32;   // assuming the address has 32 bits, initialize to 32 and decrement from there
+  unsigned int bit_mask = 0x00000000; // initialize hex value to 0
   for (int i = 0; i < newPageTable->levelCount; i++) {
-    shiftAryAmt -= bitsPerLevel[i];
-    newPageTable->shiftAry[i] = shiftAryAmt;
+    shiftAryAmt -= bitsPerLevel[i];  // for each level, decrement by # of bits per level to get shift amount
+
+    // get hex value to add to bit mask array
+    bit_mask = (1U << bitsPerLevel[i]) - 1;  // ex: if bitsPerLevel[i] = 5, we need 111111(binary) or 31(decimal)
+    bit_mask <<= shiftAryAmt;    // shift by shift amount given the level i
+    newPageTable->bitMaskAry[i] = bit_mask;  // store hex value into bits mask array
+
+    newPageTable->shiftAry[i] = shiftAryAmt; // store shift amount for each level i
   }
 
   // create array of # of next level entries for level i
@@ -85,18 +92,18 @@ PageTable* create_pagetable(int bitsPerLevel[]) {
 
   int root_depth = 0;
   // create root level with depth 0, entry count for the first level (so index 0), page table pointer
-  newPageTable->rootLevel = create_level(root_depth, newPageTable->entryCount[0] newPageTable);
+  newPageTable->rootLevel = create_level(root_depth, newPageTable->entryCount[0], newPageTable);
 
   // additional variable for summary
   exponent = newPageTable->numOfBitsOffset;
-  int pageSize = std::pow(base, exponent);               // bytes per page = 2^(offset)
+  int pageSize = std::pow(base, exponent);           // bytes per page = 2^(offset)
 
   // all initialized to 0 because no addresses have been processed, replaced, mapped, allocated
   newPageTable->numOfPageReplaced = 0;      // number of page replacement
   newPageTable->pageTableHits = 0;          // number of times a virtual page was mapped
-  newPageTable->numOfAddress = 0;           // number of addresses processed
+  newPageTable->numOfAddresses = 0;           // number of addresses processed
   newPageTable->numOfFramesAllocated = 0;   // number of frames allocated
-  newPageTable->pgTableEntries = 0;         // total number of page table entries acrosss all levels
+  newPageTable->pgTableEntries = 0;         // total number of page table entries across all levels
 
   return newPageTable;
 }
@@ -111,11 +118,69 @@ unsigned int getVPNFromVirtualAddress(unsigned int virtualAdd, unsigned int mask
   return page;
 }
 
-void insertVpn2PfnMapping(PageTable *PageTable, unsigned int VPN, int frameNum) {
+// Inserting VPN -> PFN mapping to pagetable
+void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) {
 
+  	bool dirty = false;
+   	bool PTHit = true;	// initialize this address as a hit, until a new level or map object is created
+    int vpns = nullptr;
+
+    // starting from root level
+    Level* currLevel = PageTable->rootLevel;
+
+    // traversing through each level in pagetable
+    for (int i=0; i < PageTable->levelCount; ++i) {
+
+        int vpn_index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
+
+        // when leaf level reached and map PFN does not exist, create map object at given index
+        if (i == PageTable->levelCount - 1) {
+        	if (currLevel->mapPtr[vpn_index].frameNum == -1) {
+            	currLevel->mapPtr[vpn_index].frameNum = frameNum;           // assigning PFN
+            	currLevel->mapPtr[vpn_index].valid = (frameNum >= 0);       // setting validity
+            	PageTable->numOfFramesAllocated++;
+            	PTHit = false;	// creating a new map object given the VPN indicates this addresss is a miss
+           		return;
+                }
+         }
+         // creating next level nodes for non-leaf level if it doesn't exist
+        else {
+          if (currLevel->nextLevelPtr[vpn_index] == nullptr) {
+            currLevel->nextLevelPtr[vpn_index] = create_level(i+1, PageTable->entryCount[i+1], PageTable);
+            PTHit = false; 	// creating a new level given the VPN indicates this address is a miss
+          }
+        }
+
+		// moving to next level
+        currLevel = currLevel->nextLevelPtr[vpn_index];
+    }
 }
 
-Map* findVpn2PfnMapping(PageTable *PageTable, unsigned int VPN) {
+// looks up the VPN in the pagetable and returns the Map only if valid
+Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int VPN) {
+    // starting at the root node
+    Level* currLevel = PageTable->rootLevel;
 
+    // traversing through levels in pagetable
+    for (int i=0; i < PageTable->levelCount; ++i){
 
+      	// extracting the index into that level's array
+        int index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
+
+        // if at leaf level and the map object has a valid flag, return the map
+        if (i == PageTable->levelCount - 1){
+            if (!currLevel->mapPtr[index].valid){        // check if the map entry is valid
+            return nullptr;                             // if not return nullptr
+            }
+            return &currLevel->mapPtr[index];           // if valid, return the pointer to Map object with PFN
+        }
+
+        // moving to next level if exists, else return null
+        if (currLevel->nextLevelPtr[index] == nullptr){         //check if valid mapping found
+            return nullptr;                                     // returning nullptr if not
+        }
+        // if next level exists, go to next level
+        currLevel = currLevel->nextLevelPtr[index];
+    }
+    return nullptr;
 }
