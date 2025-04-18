@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <cstdint>
+#include "page_table.h"
 
 struct WSClockEntry{
     unsigned int vpn;       // virtual page number (full)
@@ -12,9 +13,9 @@ struct WSClockEntry{
     bool dirty;             // true if page has been written to
 };
 
-WSClockEntry* create_WSClock_entry(unsigned int vpn, int frameNum, int lastAccessTime, bool dirty); 
+WSClockEntry* create_WSClock_entry(unsigned int vpn, int frameNum, int lastAccessTime, bool dirty);
 
 
-void page_replacement(WSClockEntry* entries, int clock_hand_position);
+void page_replacement(WSClockEntry* entries, int clock_hand_position, int ageThreshold, int currentTime, unsigned int newVpn, PageTable* PageTable);
 
 #endif
