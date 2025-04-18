@@ -8,8 +8,6 @@
 #ifndef PAGE_TABLE_H
 #define PAGE_TABLE_H
 
-#include <iostream>
-#include <cstring>
 
 struct PageTable;
 
