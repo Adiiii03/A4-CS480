@@ -1,4 +1,4 @@
-// === WSClock.h ===
+
 #ifndef WSCLOCK_H
 #define WSCLOCK_H
 
@@ -12,12 +12,9 @@ struct WSClockEntry{
     bool dirty;             // true if page has been written to
 };
 
-WSClockEntry create_WSClock_entry(unsigned int vpn, int frameNum, int lastAccessTime, bool dirty); 
+WSClockEntry* create_WSClock_entry(unsigned int vpn, int frameNum, int lastAccessTime, bool dirty); 
 
-//void page_replacement(WSClockEntry* entries, int clock_hand_position);
 
-// perform WSClock page replacement algorithm
-// returns frame number to use and updates oldVPN with evicted VPN
-int page_replacement(std::vector<WSClockEntry>& clock, int& clockHand, int ageThreshold, int currentTime, unsigned int& oldVPN);
+void page_replacement(WSClockEntry* entries, int clock_hand_position);
 
 #endif
