@@ -126,7 +126,7 @@ void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) 
 
   	bool dirty = false;
    	bool PTHit = true;	// initialize this address as a hit, until a new level or map object is created
-    int vpns = nullptr;
+    int* vpns = new int[PageTable->levelCount];
 
     // starting from root level
     Level* currLevel = PageTable->rootLevel;
