@@ -107,33 +107,37 @@ unsigned int getVPNFromVirtualAddress(unsigned int virtualAdd, unsigned int mask
 }
 
 // Inserting VPN -> PFN mapping to pagetable
-void insertVpn2PfnMapping(PageTable *PageTable, unsigned int VPN, int frameNum){
+void insertVpn2PfnMapping(PageTable *PageTable, unsigned int VPN, int frameNum) {
     // starting from root level
     Level* currLevel = PageTable->rootLevel;
 
     // traversing thru each level in pagetable
-    for (int i=0; i < PageTable->levelCount; ++i){
-        int index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
+    for (int i=0; i < PageTable->levelCount; ++i){              // i: current depth in the page table (0 = root level)
+        int index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);            // index: position within this level’s array derived from VPN bits for this level
 
     // when leaf level reached
-    if (i == PageTable->levelCount - 1){
-        currLevel->mapPtr[index].frameNum = frameNum;           // assigning PFN
-        currLevel->mapPtr[index].valid = (frameNum >= 0);       // setting validity
-        return;
+
+        if ((i == PageTable->levelCount - 1)){                            
+            currLevel->mapPtr[index].frameNum = frameNum;           // assigning PFN
+            currLevel->mapPtr[index].valid = (frameNum >= 0);       // setting validity
+            return;
+            }
+        
+
+        // creating next level nodes for non-leaf level if it doesn't exist
+        if (currLevel->nextLevelPtr[index] == nullptr){
+            currLevel-> nextLevelPtr[index] = create_level(i+1, PageTable->entryCount[i+1], PageTable);
+            PageTable->pgTableEntries++;                            // incrementing pagetable entry count
+        }
+        currLevel= currLevel->nextLevelPtr[index];                  // moving to next level
     }
 
-    // creating next level nodes for non-leaf level if it doesn't exist
-    if (currLevel->nextLevelPtr[index] == nullptr){
-        currLevel-> nextLevelPtr[index] = create_level(i+1, PageTable->entryCount[i+1], PageTable);
-        PageTable->pgTableEntries++;                            // incrementing pagetable entry count
-    }
-    currLevel= currLevel->nextLevelPtr[index];                  // moving to next level
 }
 
 // looks up the VPN in the pagetable and returns the Map only if valid
 Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int VPN){
     // starting at thew root node
-    Level* currLevel = PageTable->rootLevel;
+    Level* currLevel = PageTable->rootLevel;    
 
     // traversing thru levels in pagetable
     for (int i=0; i < PageTable->levelCount; ++i){          
