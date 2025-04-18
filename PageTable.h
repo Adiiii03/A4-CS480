@@ -8,6 +8,8 @@
 #ifndef PAGE_TABLE_H
 #define PAGE_TABLE_H
 
+#include <iostream>
+#include <cstring>
 
 struct PageTable;
 
@@ -50,7 +52,7 @@ Map create_map();    // constructor for map object
 
 Level* create_level(int depth, int entryCount, PageTable* pageTablePtr);   // constructor for Level
 
-PageTable* create_pagetable(int bitsPerLevel[]);     // constructor for page table
+PageTable* create_pagetable(int bitsPerLevel[], int levelCount);     // constructor for page table
 
 /**
  * @brief Applies bit mask and shift right to given virtual address. Used to retrieve full VPN or VPN of any level.
