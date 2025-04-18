@@ -46,13 +46,14 @@ void page_replacement(WSClockEntry** entries, int clock_hand_position, int ageTh
                 // franeNum for the victim page
                 int victimFrame = entry->frameNum;
 
-                // advancing clock_hand_position
-                clock_hand_position = clock_hand_position + 1;
         }
     }
         else{
             // clearing the dirty flag
             entry->dirty = false;
         }
+
     }
+    // advancing clock_hand_position
+    clock_hand_position = clock_hand_position + 1;
 }
