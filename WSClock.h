@@ -1,4 +1,3 @@
-
 #ifndef WSCLOCK_H
 #define WSCLOCK_H
 
@@ -16,6 +15,6 @@ struct WSClockEntry{
 WSClockEntry* create_WSClock_entry(unsigned int vpn, int frameNum, int lastAccessTime, bool dirty);
 
 
-void page_replacement(WSClockEntry* entries, int clock_hand_position, int ageThreshold, int currentTime, unsigned int newVpn, PageTable* PageTable);
+int page_replacement(WSClockEntry** entries, int clock_hand_position, int ageThreshold, int currentTime, unsigned int newVpn, PageTable* PageTable);
 
 #endif
