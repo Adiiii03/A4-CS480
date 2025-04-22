@@ -44,7 +44,6 @@ Map create_map() {
    newMap.frameNum = -1;
    newMap.valid = false;
 
-
    return newMap;
 }
 
@@ -73,8 +72,8 @@ PageTable* create_pagetable(int bitsPerLevel[], int levelCount) {
     // get hex value to add to bit mask array
     bit_mask = (1U << bitsPerLevel[i]) - 1;  // ex: if bitsPerLevel[i] = 5, we need 111111(binary) or 31(decimal)
     bit_mask <<= shiftAryAmt;                // shift by shift amount given the level i
-    newPageTable->bitMaskAry[i] = bit_mask;  // store hex value into bits mask array
 
+    newPageTable->bitMaskAry[i] = bit_mask;  // store hex value into bits mask array
     newPageTable->shiftAry[i] = shiftAryAmt; // store shift amount for each level i
   }
 
@@ -88,6 +87,13 @@ PageTable* create_pagetable(int bitsPerLevel[], int levelCount) {
     newPageTable->entryCount[i] = std::pow(base, exponent);
   }
 
+   // all initialized to 0 because no addresses have been processed, replaced, mapped, allocated
+  newPageTable->numOfPageReplaced = 0;      // number of page replacement
+  newPageTable->pageTableHits = 0;          // number of times a virtual page was mapped
+  newPageTable->numOfAddresses = 0;         // number of addresses processed
+  newPageTable->numOfFramesAllocated = 0;   // number of frames allocated
+  newPageTable->pgTableEntries = 0;         // number of page table entries initalized to 0
+
   int root_depth = 0;
   // create root level with depth 0, entry count for the first level (so index 0), page table pointer
   newPageTable->rootLevel = create_level(root_depth, newPageTable->entryCount[0], newPageTable);
@@ -95,13 +101,6 @@ PageTable* create_pagetable(int bitsPerLevel[], int levelCount) {
   // additional variable for summary
   exponent = newPageTable->numOfBitsOffset;
   newPageTable->pageSize = std::pow(base, exponent);           // bytes per page = 2^(offset)
-
-  // all initialized to 0 because no addresses have been processed, replaced, mapped, allocated
-  newPageTable->numOfPageReplaced = 0;      // number of page replacement
-  newPageTable->pageTableHits = 0;          // number of times a virtual page was mapped
-  newPageTable->numOfAddresses = 0;         // number of addresses processed
-  newPageTable->numOfFramesAllocated = 0;   // number of frames allocated
-  newPageTable->pgTableEntries = 0;         // total number of page table entries across all levels
 
   return newPageTable;
 }
@@ -126,9 +125,6 @@ void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) 
     for (int i=0; i < PageTable->levelCount; ++i) {
 
         int vpn_index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
-        if (vpn_index < 0 || vpn_index >= PageTable->entryCount[i]) {
-          return;
-        }
 
         // when leaf level reached and map PFN does not exist, create map object at given index
         if (i == PageTable->levelCount - 1) {
@@ -160,8 +156,6 @@ Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int VPN) {
 
       	// extracting the index into that level's array
         int index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
-        if (index < 0 || index >= PageTable->entryCount[i]) return nullptr;
-        
 
         // if at leaf level and the map object has a valid flag, return the map
         if (i == PageTable->levelCount - 1){
