@@ -28,20 +28,21 @@ Level* create_level(int depth, int entryCount, PageTable* pageTablePtr) {
     }
   }
    else {
-     newLevel->mapPtr = new Map*[entryCount];
+     newLevel->mapPtr = new Map[entryCount];
      for (int i = 0; i < entryCount; i++) {
-       newLevel->mapPtr[i] = nullptr;
+       newLevel->mapPtr[i] = create_map();
      }
    }
+
   return newLevel;
 }
 
-Map* create_map(int frameNum) {
+Map create_map() {
     // create new map object to return
-   Map* newMap = new Map;
+   Map newMap = *new Map;
    // set default values of map object
-   newMap->frameNum = frameNum;
-   newMap->valid = true;
+   newMap.frameNum = -1;
+   newMap.valid = false;
 
    return newMap;
 }
@@ -116,7 +117,7 @@ unsigned int getVPNFromVirtualAddress(unsigned int virtualAdd, unsigned int mask
 }
 
 // Inserting VPN -> PFN mapping to pagetable
-void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) {
+void insertVpn2PfnMapping(PageTable* PageTable, unsigned int vpn, int frameNum) {
 
     // starting from root level
     Level* currLevel = PageTable->rootLevel;
@@ -124,13 +125,14 @@ void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) 
     // traversing through each level in pagetable
     for (int i=0; i < PageTable->levelCount; ++i) {
 
-        int vpn_index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
+        int vpn_index = getVPNFromVirtualAddress(vpn, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
 
         // when leaf level reached and map PFN does not exist, create map object at given index
         if (i == PageTable->levelCount - 1) {
 
         	//set map pointer with frame number
-            currLevel->mapPtr[vpn_index] = create_map(frameNum);
+            currLevel->mapPtr[vpn_index].frameNum = frameNum;           // assigning PFN
+            currLevel->mapPtr[vpn_index].valid = true;       // setting validity
 
          }
          // creating next level nodes for non-leaf level if it doesn't exist
@@ -144,8 +146,8 @@ void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) 
     }
 }
 
-// looks up the VPN in the pagetable and returns the Map
-Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int VPN) {
+// looks up the VPN in the pagetable and returns the Map only if valid
+Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int vpn){
     // starting at the root node
     Level* currLevel = PageTable->rootLevel;
 
@@ -153,20 +155,23 @@ Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int VPN) {
     for (int i=0; i < PageTable->levelCount; ++i){
 
       	// extracting the index into that level's array
-        int index = getVPNFromVirtualAddress(VPN, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
+        int index = getVPNFromVirtualAddress(vpn, PageTable->bitMaskAry[i], PageTable->shiftAry[i]);
 
         // if at leaf level and the map object has a valid flag, return the map
         if (i == PageTable->levelCount - 1){
-//            if (currLevel->mapPtr[index] == nullptr){        // check if the map entry is valid
-//                return nullptr;                             // if not return nullptr
-//            }
-            return currLevel->mapPtr[index];           //  return the pointer to Map object with PFN
+            if (!currLevel->mapPtr[index].valid){        // check if the map entry is valid
+                return nullptr;                             // if not return nullptr
+            }
+        return &currLevel->mapPtr[index];           // if valid, return the pointer to Map object with PFN
         }
 
         else {
             // moving to next level if exists, else return null
-            if (currLevel->nextLevelPtr[index] == nullptr){         //check if valid mapping found
-                    return nullptr;                                     // returning nullptr if not
+            if (currLevel->nextLevelPtr == nullptr) {
+               return nullptr;
+              }
+            else if (currLevel->nextLevelPtr[index] == nullptr){         //check if valid mapping found
+                return nullptr;                                     // returning nullptr if not
             }
         }
         // if next level exists, go to next level
