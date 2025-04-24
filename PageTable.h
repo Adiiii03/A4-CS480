@@ -25,7 +25,7 @@ struct Level{
     int depth;                  // current depth level (root=0)
     PageTable* pageTablePtr;    // pointer back to the parent table
     Level** nextLevelPtr;        // stores the array of next Level* pointers, for non-leaf nodes
-    Map* mapPtr;               // stores the array of map objects, for leaf nodes
+    Map** mapPtr;               // stores the array of map objects, for leaf nodes
 
 };
 
@@ -45,14 +45,15 @@ struct PageTable{
     int numOfAddresses;           // number of addresses processed
     int numOfFramesAllocated;   // number of frames allocated
     int pgTableEntries;         // total number of page table entries acrosss all levels
+    const char* logMode;
 
 };
 
-Map create_map();    // constructor for map object
+Map* create_map(int frameNum);    // constructor for map object
 
 Level* create_level(int depth, int entryCount, PageTable* pageTablePtr);   // constructor for Level
 
-PageTable* create_pagetable(int bitsPerLevel[], int levelCount);     // constructor for page table
+PageTable* create_pagetable(int bitsPerLevel[], int levelCount, const char* logMode);     // constructor for page table
 
 /**
  * @brief Applies bit mask and shift right to given virtual address. Used to retrieve full VPN or VPN of any level.
