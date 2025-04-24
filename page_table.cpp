@@ -14,9 +14,9 @@ Level* create_level(int depth, int entryCount, PageTable* pageTablePtr) {
 
   newLevel->depth = depth;
   newLevel->pageTablePtr = pageTablePtr;
-
   newLevel->nextLevelPtr = nullptr;
-  Map* mapPtr = nullptr;
+  newLevel->mapPtr = nullptr;
+
   // add entry count to page table entries
   pageTablePtr->pgTableEntries += entryCount;
 
@@ -28,30 +28,30 @@ Level* create_level(int depth, int entryCount, PageTable* pageTablePtr) {
     }
   }
    else {
-     newLevel->mapPtr = new Map[entryCount];
+     newLevel->mapPtr = new Map*[entryCount];
      for (int i = 0; i < entryCount; i++) {
-       newLevel->mapPtr[i] = create_map();
+       newLevel->mapPtr[i] = nullptr;
      }
    }
-
   return newLevel;
 }
 
-Map create_map() {
+Map* create_map(int frameNum) {
     // create new map object to return
-   Map newMap = *new Map;
+   Map* newMap = new Map;
    // set default values of map object
-   newMap.frameNum = -1;
-   newMap.valid = false;
+   newMap->frameNum = frameNum;
+   newMap->valid = true;
 
    return newMap;
 }
 
-PageTable* create_pagetable(int bitsPerLevel[], int levelCount) {
+PageTable* create_pagetable(int bitsPerLevel[], int levelCount, const char* logMode) {
 
   PageTable* newPageTable = new PageTable;  // creating new page table
-  newPageTable->levelCount = levelCount;    // storing number of levels
 
+  newPageTable->levelCount = levelCount;    // storing number of levels
+  newPageTable->logMode = logMode;
 
   // store count of bits for offset; offset = 32 - (number of bits for each level)
   newPageTable->numOfBitsOffset = 32;
@@ -128,12 +128,10 @@ void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) 
 
         // when leaf level reached and map PFN does not exist, create map object at given index
         if (i == PageTable->levelCount - 1) {
-        	if (currLevel->mapPtr[vpn_index].frameNum == -1) {
-            	currLevel->mapPtr[vpn_index].frameNum = frameNum;           // assigning PFN
-            	currLevel->mapPtr[vpn_index].valid = (frameNum >= 0);       // setting validity
-            	PageTable->numOfFramesAllocated++;
-           		return;
-                }
+
+        	//set map pointer with frame number
+            currLevel->mapPtr[vpn_index] = create_map(frameNum);
+
          }
          // creating next level nodes for non-leaf level if it doesn't exist
         else {
@@ -146,7 +144,7 @@ void insertVpn2PfnMapping(PageTable* PageTable, unsigned int VPN, int frameNum) 
     }
 }
 
-// looks up the VPN in the pagetable and returns the Map only if valid
+// looks up the VPN in the pagetable and returns the Map
 Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int VPN) {
     // starting at the root node
     Level* currLevel = PageTable->rootLevel;
@@ -159,15 +157,17 @@ Map* findVpn2PfnMapping(PageTable* PageTable, unsigned int VPN) {
 
         // if at leaf level and the map object has a valid flag, return the map
         if (i == PageTable->levelCount - 1){
-            if (!currLevel->mapPtr[index].valid){        // check if the map entry is valid
-            return nullptr;                             // if not return nullptr
-            }
-            return &currLevel->mapPtr[index];           // if valid, return the pointer to Map object with PFN
+//            if (currLevel->mapPtr[index] == nullptr){        // check if the map entry is valid
+//                return nullptr;                             // if not return nullptr
+//            }
+            return currLevel->mapPtr[index];           //  return the pointer to Map object with PFN
         }
 
-        // moving to next level if exists, else return null
-        if (currLevel->nextLevelPtr[index] == nullptr){         //check if valid mapping found
-            return nullptr;                                     // returning nullptr if not
+        else {
+            // moving to next level if exists, else return null
+            if (currLevel->nextLevelPtr[index] == nullptr){         //check if valid mapping found
+                    return nullptr;                                     // returning nullptr if not
+            }
         }
         // if next level exists, go to next level
         currLevel = currLevel->nextLevelPtr[index];
