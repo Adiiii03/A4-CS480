@@ -12,17 +12,15 @@
 #include "page_table.h"
 #include "log_helpers.h"
 #include "wsclock.h"
-#include <vector>
+
 
 
 int main(int argc, char* argv[]) {
 
-    int numOfAddresses = 0;         // count of addresses processed
     int frameNum = 0;               // stores physical frame number, which starts at 0 (and will be sequentially incremented)
     p2AddrTr mtrace;                // structure is typedefed in vaddr_tracereader
-    unsigned int vAddr;             // unsigned 32-bit integer type
+    unsigned int vAddr = 0;             // unsigned 32-bit integer type
 
-    std::vector<WSClockEntry> WSclock;      // vector list of type WSClockEntryto hold the clocks entries
     int clock_hand_position = 0;            // position of lock hand starting at 0
 
     int maxNumMemAccesses = -1;             // only process first N memory accesses, default is all
@@ -32,7 +30,7 @@ int main(int argc, char* argv[]) {
 
 
     // command line argument parsing
-    int opt;
+    int opt = 0;
     while ((opt = getopt(argc, argv, "n:f:a:l:")) != -1) {
         switch (opt) {
             case 'n':
@@ -102,12 +100,14 @@ int main(int argc, char* argv[]) {
     }
 
     // creating pagetable and WSClock entry arrays
-    PageTable* page_table = create_pagetable(bitsPerLevel, levelCount);
-    WSClockEntry** WSClock_entry = new WSClockEntry*[numPhysicalFrames];      // array of pointers for WSClock entries
+    PageTable* page_table = create_pagetable(bitsPerLevel, levelCount, logMode);
+    auto** WSClock_entries = new WSClockEntry*[numPhysicalFrames];      // array of pointers for WSClock entries
 
     // main memory access loop
-    // magic number for maxnumMemAccess!!
-    while ((maxNumMemAccesses == -1 || numOfAddresses < maxNumMemAccesses) && NextAddress(mtrace_file, &mtrace)) {
+    // if maximum memory accesses if not specfied, continue reading available addresses OR
+              // if maximum memory accesses is specified, read until max is reached
+    while ((maxNumMemAccesses == -1 || page_table->numOfAddresses < maxNumMemAccesses) && NextAddress(mtrace_file, &mtrace)) {
+
         vAddr = mtrace.addr;        // reading & storing virtual address
 
         // extracting VPNs for each level
@@ -120,49 +120,86 @@ int main(int argc, char* argv[]) {
         bool isWrite = (fgetc(readswrites_file) == '1');
 
         // checking if the address has existing mapping already
-        Map* map = findVpn2PfnMapping(page_table, vAddr);
-        unsigned int fullVPN = vAddr >> page_table->numOfBitsOffset; // the full VPN for logging
 
-        if (map != nullptr) {                // pagetable hit
+        unsigned int fullVPN = vAddr >> page_table->numOfBitsOffset; // the full VPN for logging
+        unsigned int offset = vAddr & ((1U << page_table->numOfBitsOffset) - 1);    // variable storing offset; 0 is a placeholder
+        unsigned int physical_address = 0;     // variable storing physical address; 0 is a placeholder
+
+        Map* map = findVpn2PfnMapping(page_table, vAddr);
+
+        // if page table hit
+        if (map != nullptr) {
             page_table->pageTableHits++;
-            WSClock_entry[map->frameNum]->lastUsedTime = numOfAddresses;        // updating last used time
+            WSClock_entries[map->frameNum]->lastUsedTime = page_table->numOfAddresses;        // updating last used time
             if (isWrite) {
-                WSClock_entry[map->frameNum]->dirty = true;            // if the page is written, flag it as dirty
+                WSClock_entries[map->frameNum]->dirty = isWrite;            // if the page is written, flag it as dirty
             }
+
+            // logging based on depending mode
             if (strcmp(logMode, "vpn2pfn_pr") == 0){
                 log_mapping(fullVPN, map->frameNum, -1, true);     // logging map hit
             }
+            else if (strcmp(logMode, "vpns_pfn") == 0){
+                log_vpns_pfn(page_table->levelCount, vpns, map->frameNum);
+            }
+            else if (strcmp(logMode, "offset") == 0) {
+                print_num_inHex(offset);
+            }
+            else if (strcmp(logMode, "va2pa") == 0) {
+                physical_address = (map->frameNum << page_table->numOfBitsOffset) + offset;
+                log_va2pa(vAddr, physical_address);
+            }
 
         }
-        else {                               // pagetable miss
+        // if page table miss, add to page table and WSClock vector
+        else {
             if (page_table->numOfFramesAllocated < numPhysicalFrames) {         // checking if a free frame is available
                 insertVpn2PfnMapping(page_table, vAddr, frameNum);              // if yes, add new mapping
-                WSClock_entry[frameNum] = create_WSClock_entry(vAddr, frameNum, numOfAddresses, isWrite);
+                WSClock_entries[frameNum] = create_WSClock_entry(fullVPN, frameNum, page_table->numOfAddresses, isWrite);
+
                 if (strcmp(logMode, "vpn2pfn_pr") == 0){
                     log_mapping(fullVPN, frameNum, -1, false);     // logging new map
                 }
+                else if (strcmp(logMode, "vpns_pfn") == 0){
+                    log_vpns_pfn(page_table->levelCount, vpns, frameNum);
+                }
+                else if (strcmp(logMode, "offset") == 0) {
+                    print_num_inHex(offset);
+                }
+                else if (strcmp(logMode, "va2pa") == 0) {
+                    physical_address = (frameNum << page_table->numOfBitsOffset) + offset;
+                    log_va2pa(vAddr, physical_address);
+                }
                 frameNum++;                 // incrementing frameNum
+                page_table->numOfFramesAllocated++;
             }
-            else {                          // performing page replacement
-                unsigned int victimVpn = WSClock_entry[clock_hand_position]->vpn;               // getting VPN of the victim page
-                clock_hand_position = page_replacement(WSClock_entry, clock_hand_position, ageRecentLastAccess, numOfAddresses, vAddr >> page_table->numOfBitsOffset, page_table);
-                int replacedFrame = WSClock_entry[clock_hand_position]->frameNum;
+            // performing page replacement
+            else {
+                //std::cout << clock_hand_position << std::endl;
+
+                clock_hand_position = page_replacement(WSClock_entries, clock_hand_position, ageRecentLastAccess, page_table->numOfAddresses, fullVPN, vAddr, page_table, isWrite);
+
                 page_table->numOfPageReplaced++;
-                if (strcmp(logMode, "vpn2pfn_pr") == 0){
-                    log_mapping(fullVPN, replacedFrame, victimVpn, false);
+
+                Map* updated = findVpn2PfnMapping(page_table, vAddr);
+
+                if (updated != nullptr) {
+                    if (strcmp(logMode, "vpns_pfn") == 0) {
+                        log_vpns_pfn(page_table->levelCount, vpns, updated->frameNum);
+                    }
+                    else if (strcmp(logMode, "offset") == 0) {
+                        print_num_inHex(offset);
+                    }
+                    else if (strcmp(logMode, "va2pa") == 0) {
+                        physical_address = (updated->frameNum << page_table->numOfBitsOffset) + offset;
+                        log_va2pa(vAddr, physical_address);
+                    }
                 }
 
             }
         }
         page_table->numOfAddresses++;       // updating total number of address for pagetable
-
-            // if max number of memory accesses is specified (in command line) > 0
-            // and if max number of memory accesses is reached (>= maxNumMemAccesses), then exit while loop
-            if (maxNumMemAccesses > 0 && numOfAddresses >= maxNumMemAccesses) {
-                break;
-            }
     }
-
 
     // print logs given the log mode from command line
     if (strcmp(logMode, "bitmasks") == 0){
@@ -177,7 +214,7 @@ int main(int argc, char* argv[]) {
     // close files before exiting
     fclose(mtrace_file);            // closing trace file
     fclose(readswrites_file);       // closing read/write file
-    delete[] WSClock_entry;         // deallocating memory for WSClock entries
+    delete[] WSClock_entries;         // deallocating memory for WSClock entries
 
     return 0; // exit program, as it successfully complete
 
